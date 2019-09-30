@@ -1,0 +1,7 @@
+requests
+flask
+cherrypy
+sesamutils
+Paste
+
+
