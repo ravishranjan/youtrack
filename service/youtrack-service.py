@@ -25,7 +25,7 @@ if not config.validate():
     sys.exit(1)
 
 
-@app.route('/issues')
+@app.route('/issues')  # Limit set 4000 issues, tested and working within Sesam.
 def get_issues():
     try:
         if request.args.get('since') is None:
@@ -37,7 +37,9 @@ def get_issues():
         with requests.Session() as session:
             fields = entitiesschema.make_issues_fields_query()
             query = urlquote(f'updated: {last_update_date} .. Today')
-            url = f'https://sesam.myjetbrains.com/youtrack/api/issues?query={query}&{fields}'
+            skip = 0
+            top = 4000
+            url = f'https://sesam.myjetbrains.com/youtrack/api/issues?query={query}&{fields}&$skip={skip}&$top={top}'
             response = session.get(url, timeout=180, headers={'Authorization': 'Bearer ' + config.token})
             result = list()
             if response.ok:
@@ -46,6 +48,48 @@ def get_issues():
                                strftime('%Y-%m-%dT%H:%M'), _id=item['idReadable']) for item in data]
                 result = result[::-1]
         return Response(json.dumps(result), mimetype='application/json')
+    except Timeout as e:
+        logger.error(f"Timeout issue while fetching YouTrack Issues {e}")
+    except ConnectionError as e:
+        logger.error(f"ConnectionError issue while fetching YouTrack Issues {e}")
+    except Exception as e:
+        logger.error(f"Issue while fetching YouTrack Issues: {e}")
+
+
+@app.route(
+    '/get_all_issues')  # Will combine all paged lists and send it to Sesam, needs to be streamed because it takes up too much memory.
+def get_all_issues():
+    try:
+        if request.args.get('since') is None:
+            last_update_date = '2015-09-25'  # Starting from beginning :-)
+            logger.debug(f"since value set from ms: {last_update_date}")
+        else:
+            last_update_date = request.args.get('since')
+            logger.debug(f"since value sent from sesam: {last_update_date}")
+        with requests.Session() as session:
+            fields = entitiesschema.make_issues_fields_query()
+            query = urlquote(f'updated: {last_update_date} .. Today')
+            data_set = []
+            skip = 0
+            top = 1000
+            uri = f'https://sesam.myjetbrains.com/youtrack/api/issues?query={query}&{fields}'
+
+            while True:
+                param = '&$skip={}&$top={}'.format(skip, top)
+                r = requests.get(uri + param, headers={'Authorization': 'Bearer ' + config.token})
+                logger.info('Fetching issues with values: Skip: {} & Top: {}'.format(skip, top))
+                raw = r.json()
+                if len(raw) != 0:
+                    top = top + 1000
+                    skip = skip + 1000
+                    result = [dict(item, _updated=datetime.datetime.fromtimestamp(item['updated'] / 1e3).
+                                   strftime('%Y-%m-%dT%H:%M'), _id=item['idReadable']) for item in raw]
+                    result = result[::-1]
+                    for entities in result:
+                        data_set.append(entities)
+                else:
+                    break
+            return Response(json.dumps(data_set), mimetype='application/json')
     except Timeout as e:
         logger.error(f"Timeout issue while fetching YouTrack Issues {e}")
     except ConnectionError as e:
@@ -106,7 +150,7 @@ def get_projects():
                 custom_field_query = entitiesschema.make_projects_fields_query_customfields()
                 for project in projects:
                     url_project = f"https://sesam.myjetbrains.com/youtrack/api/admin/" \
-                                  f"projects/{project['id']}/fields?{custom_field_query}"
+                        f"projects/{project['id']}/fields?{custom_field_query}"
                     response = session.get(url_project, timeout=180,
                                            headers={'Authorization': 'Bearer ' + config.token})
                     project['customFields'] = response.json()
@@ -148,3 +192,4 @@ if __name__ == '__main__':
     # Start the CherryPy WSGI web server
     cherrypy.engine.start()
     cherrypy.engine.block()
+
