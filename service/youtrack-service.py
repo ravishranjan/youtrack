@@ -17,6 +17,93 @@ app = Flask(__name__)
 
 logger = logging.getLogger("YouTrack-Service")
 
+API_URL = "https://sesam.myjetbrains.com/youtrack/api/"
+START = '2015-09-25'
+
+def stream_as_json(generator_function):
+    """
+    Stream list of objects as JSON array
+    :param generator_function:
+    :return:
+    """
+    first = True
+
+    yield '['
+
+    for item in generator_function:
+        if not first:
+            yield ','
+        else:
+            first = False
+
+        yield json.dumps(item)
+
+    yield ']'
+
+def datetime_format(dt):
+    return '%04d' % dt.year + dt.strftime("-%m-%dT%H:%M:%SZ")
+
+
+def to_transit_datetime(dt_int):
+    return "~t" + datetime_format(dt_int)
+
+def get_all_objects(datatype: str, since=START):
+    """
+    Fetch and stream back objects from YouTrack API
+    :param datatype path to needed resource in YouTrack entity type
+    :param since: since value from last request.
+    More about delta https://www.jetbrains.com/help/youtrack/standalone/youtrack-rest-api-reference.html
+    :return: generated output with all fetched objects
+    """
+    if datatype in entitiesschema.fields["admin"]:
+        url = API_URL + "admin/"+ datatype
+    else:
+        url = API_URL + datatype
+
+    sincequery = ""
+    if "updated" in entitiesschema.fields[datatype]:
+        sincequery = f"{urlquote(f'updated: {since} .. Today')}&"
+    url += f"?{sincequery}{entitiesschema.fields_query(datatype)}"
+    skip = 0
+    top = 1000
+
+    while True:
+        param = '&$skip={}&$top={}'.format(skip, top)
+        response = requests.get(url + param, headers={'Authorization': 'Bearer ' + config.token})
+        logger.info('Fetching issues with values: Skip: {} & Top: {}'.format(skip, top))
+        if response.ok:
+            data = response.json()
+            if len(data) == 0:
+                break
+
+            skip += 1000
+
+            u = 0
+            count = 0
+
+            for item in data:
+
+                i = dict(item)
+                for date in entitiesschema.fields["dates"]:
+                    if date in i:
+                        if i[date]:
+                            i[date] = to_transit_datetime(datetime.datetime.fromtimestamp(i[date] / 1e3))
+                try:
+                    i["_id"] = item['id']
+                    x = item['updated'] or item['created'] or item['date']
+                    u = datetime.datetime.fromtimestamp(x / 1e3).strftime('%Y-%m-%dT%H:%M')
+                except Exception as e:
+                    logger.error(f"Cant find a date: {i}")
+                i["_updated"] = u
+                yield i
+                count +=1
+
+            logger.info(f'Yielded: {count}')
+        else:
+            raise ValueError(f'value object expected in response to url: {url} got {response}')
+            break
+
+
 # Default
 required_env_vars = ["token"]
 optional_env_vars = [("LOG_LEVEL", "INFO")]
@@ -50,6 +137,66 @@ def get_issues():
         return Response(json.dumps(result), mimetype='application/json')
     except Timeout as e:
         logger.error(f"Timeout issue while fetching YouTrack Issues {e}")
+    except ConnectionError as e:
+        logger.error(f"ConnectionError issue while fetching YouTrack Issues {e}")
+    except Exception as e:
+        logger.error(f"Issue while fetching YouTrack Issues: {e}")
+
+
+@app.route('/workItems')
+def get_workItems():
+    try:
+        if request.args.get('since') is None:
+            last_update_date = '2019-01-01'  # Starting from beginning :-)
+            logger.debug(f"since value set from ms: {last_update_date}")
+        else:
+            last_update_date = request.args.get('since')
+            logger.debug(f"since value sent from sesam: {last_update_date}")
+        with requests.Session() as session:
+            fields = entitiesschema.make_workItems_fields_query()
+            query = urlquote(f'updated: {last_update_date} .. Today')
+            url = f'https://sesam.myjetbrains.com/youtrack/api/workItems?startDate={last_update_date}&{fields}'
+            logger.info(f"Url to get data {url}")
+            response = session.get(url, timeout=180, headers={'Authorization': 'Bearer ' + config.token})
+            result = list()
+            if response.ok:
+                data = response.json()
+                logger.debug(f"Got data: {data}")
+                u = 0
+                for item in data:
+
+                    i = dict(item)
+                    try:
+                        i["_id"] = item['id']
+                        x = item['updated'] or item['date']
+                        u = datetime.datetime.fromtimestamp(x / 1e3).strftime('%Y-%m-%dT%H:%M')
+                    except Exception as e:
+                        logger.error(f"Updated is NULL: {i}")
+                    i["_updated"] = u
+                    result.append(i)
+                result = result[::-1]
+        return Response(json.dumps(result), mimetype='application/json')
+    except Timeout as e:
+        logger.error(f"Timeout issue while fetching YouTrack workItems {e}")
+    except ConnectionError as e:
+        logger.error(f"ConnectionError issue while fetching YouTrack workItems {e}")
+    except Exception as e:
+        logger.error(f"Issue while fetching YouTrack workItems: {e}")
+
+@app.route(
+    '/entities/<datatype>')  # Will access all of the API and stream the result
+def entities(datatype):
+    try:
+        if request.args.get('since') is None:
+            last_update_date = '2019-01-01'  # Starting from beginning :-)
+            logger.debug(f"since value set from ms: {last_update_date}")
+        else:
+            last_update_date = request.args.get('since')
+            logger.debug(f"since value sent from sesam: {last_update_date}")
+
+        return Response(stream_as_json(get_all_objects(datatype,last_update_date)), mimetype='application/json')
+    except Timeout as e:
+        logger.error(f"Timeout issue while fetching YouTrack entities {e}")
     except ConnectionError as e:
         logger.error(f"ConnectionError issue while fetching YouTrack Issues {e}")
     except Exception as e:
@@ -96,7 +243,6 @@ def get_all_issues():
         logger.error(f"ConnectionError issue while fetching YouTrack Issues {e}")
     except Exception as e:
         logger.error(f"Issue while fetching YouTrack Issues: {e}")
-
 
 @app.route('/users')
 def get_users():
