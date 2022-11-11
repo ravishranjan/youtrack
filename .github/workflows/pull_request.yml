@@ -1,0 +1,16 @@
+name: Run unit tests on new PRs
+on: pull_request
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install requirements
+        run: pip3 install -r service/requirements.txt
+      - name: Run tests
+        run: python3 -m pytest tests
