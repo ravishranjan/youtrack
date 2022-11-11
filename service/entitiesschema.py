@@ -1,7 +1,7 @@
 
 fields = {
     "projects": ['id','created', 'updated','createdBy(id)','shortName', 'description', 'leader(id)', 'archived', 'fromEmail', 'replyToEmail', 'template', 'iconUrl',
-               'name', 'Priority', 'Stage', 'customFields(id)'],
+               'name', 'Priority', 'Stage', 'customFields($type,id,projectCustomField($type,id,field($type,id,name)))'],
 
     "users" : ['id','created', 'updated', 'login', 'fullName', 'email', 'jabberAccountName', 'ringId', 'guest', 'online', 'banned',
               'tags(id)', 'savedQueries(id)', 'avatarUrl', 'profiles(id)'],
@@ -14,18 +14,18 @@ fields = {
                                   'projectCustomField(id,field(id,name)),value(avatarUrl,buildLink,color(id),fullName,'
                                   'id,isResolved,localizedName,login,minutes,name,presentation,text)'],
 
-    "issuevoters": ['hasVote', 'original(id,fullName)', 'duplicate(issue(idReadable),user(id,fullName))'],
+    "issuevoters": ['hasVote', 'original(id,fullName)', 'duplicate(issue(id),user(id,fullName))'],
 
     "issuewatchers": ['hasStar',
-                     'issueWatchers(user(id,fullName),issue(idReadable),isStarred),duplicateWatchers(user(id,fullName),'
-                     'issue(idReadable),isStarred)'],
+                     'issueWatchers(user(id,fullName),issue(id),isStarred),duplicateWatchers(user(id,fullName),'
+                     'issue(id),isStarred)'],
     "array_of_issueattachments": ['name', 'author(id,fullName)', 'created', 'updated', 'size', 'extension', 'charset',
                                  'mimeType', 'metaData', 'draft', 'removed', 'base64Content', 'url',
-                                 'issue(idReadable)', 'comment(name)', 'thumbnailURL'],
+                                 'issue(id)', 'comment(name)', 'thumbnailURL'],
 
     "issuelink": ['direction',
                  'linkType(name,localizedName,sourceToTarget,localizedSourceToTarget,targetToSource,'
-                 'localizedTargetToSource,directed,aggregation,readOnly),issues(idReadable),trimmedIssues(idReadable)'],
+                 'localizedTargetToSource,directed,aggregation,readOnly),issues(id),trimmedIssues(id)'],
 
     "externalissue": ['name', 'url', 'key'],
 
@@ -34,11 +34,12 @@ fields = {
     "workItems": ['id','author(id)','creator(id)','text','textPreview','type(id)','created', 'updated',
             'duration(minutes)', 'date', 'issue(id)','usesMarkdown'],
 
-    "issues": ['id','idReadable', 'created', 'updated', 'resolved', 'numberInProject', 'project(id)', 'summary', 'description',
+    "issues": ['id','id', 'created', 'updated', 'resolved', 'numberInProject', 'project(id)', 'summary', 'description',
             'usesMarkdown', 'wikifiedDescription',
             'reporter(id)', 'updater(id)', 'draftOwner', 'isDraft', 'visibility(id)', 'votes', 'comments(id)', 'commentsCount',
-            'externalIssue(id, key, url, name)', 'customFields(id)', 'voters(id)', 'watchers(id)',
-            'attachments(id)', 'subtasks(id)', 'parent(id)'],
+            'externalIssue(id, key, url, name)', 'customFields($type,id,name,value(name),projectCustomField($type,id,field($type,id,name)))', 'voters(id)', 'watchers(id)',
+            'attachments(id)', 'subtasks(id)',
+            'parent($type, id, direction,linkType(name,localizedName,sourceToTarget,localizedSourceToTarget,targetToSource, localizedTargetToSource,directed,aggregation,readOnly),issues(id),trimmedIssues(id))'],
 
 
     "dates": ["updated","created","date","resolved"],
@@ -59,16 +60,16 @@ def all_nested_fields():
     array_of_issuecustomfields = ['name', 'id',
                                   'projectCustomField(id,field(id,name)),value(avatarUrl,buildLink,color(id),fullName,'
                                   'id,isResolved,localizedName,login,minutes,name,presentation,text)']
-    issuevoters = ['hasVote', 'original(id,fullName)', 'duplicate(issue(idReadable),user(id,fullName))']
+    issuevoters = ['hasVote', 'original(id,fullName)', 'duplicate(issue(id),user(id,fullName))']
     issuewatchers = ['hasStar',
-                     'issueWatchers(user(id,fullName),issue(idReadable),isStarred),duplicateWatchers(user(id,fullName),'
-                     'issue(idReadable),isStarred)']
+                     'issueWatchers(user(id,fullName),issue(id),isStarred),duplicateWatchers(user(id,fullName),'
+                     'issue(id),isStarred)']
     array_of_issueattachments = ['name', 'author(id,fullName)', 'created', 'updated', 'size', 'extension', 'charset',
                                  'mimeType', 'metaData', 'draft', 'removed', 'base64Content', 'url',
-                                 'issue(idReadable)', 'comment(name)', 'thumbnailURL']
+                                 'issue(id)', 'comment(name)', 'thumbnailURL']
     issuelink = ['direction',
                  'linkType(name,localizedName,sourceToTarget,localizedSourceToTarget,targetToSource,'
-                 'localizedTargetToSource,directed,aggregation,readOnly),issues(idReadable),trimmedIssues(idReadable)']
+                 'localizedTargetToSource,directed,aggregation,readOnly),issues(id),trimmedIssues(id)']
     externalissue = ['name', 'url', 'key']
     return {'Project': project, 'User': user, 'ArrayofIssueComments': array_of_issuecomments,
             'ArrayofIssueCustomFields': array_of_issuecustomfields, 'IssueVoters': issuevoters,
@@ -77,7 +78,7 @@ def all_nested_fields():
 
 
 def all_issue_fields():
-    return ['idReadable', 'created', 'updated', 'resolved', 'numberInProject', 'project', 'summary', 'description',
+    return ['id', 'created', 'updated', 'resolved', 'numberInProject', 'project', 'summary', 'description',
             'usesMarkdown', 'wikifiedDescription',
             'reporter', 'updater', 'draftOwner', 'isDraft', 'visibility', 'votes', 'comments', 'commentsCount',
             'externalIssue', 'customFields', 'voters', 'watchers',
@@ -90,7 +91,7 @@ def all_workItems_fields():
 
 
 def all_field_types():
-    return {'idReadable': 'Long', 'created': 'Long', 'updated': 'Long', 'resolved': 'Long', 'numberInProject': 'Long',
+    return {'id': 'Long', 'created': 'Long', 'updated': 'Long', 'resolved': 'Long', 'numberInProject': 'Long',
             'project': 'Project', 'summary': 'String',
             'description': 'String', 'usesMarkdown': 'Boolean', 'wikifiedDescription': 'String', 'reporter': 'User',
             'updater': 'User', 'draftOwner': 'User',

@@ -64,7 +64,7 @@ def get_all_objects(datatype: str, since=START):
         url = API_URL + datatype
 
     sincequery = ""
-    if "updated" in entitiesschema.fields[datatype]:
+    if datatype in entitiesschema.fields and "updated" in entitiesschema.fields[datatype]:
         sincequery = f"{urlquote(f'updated: {since} .. Today')}&"
     url += f"?{sincequery}{entitiesschema.fields_query(datatype)}"
     skip = 0
