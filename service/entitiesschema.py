@@ -37,7 +37,7 @@ fields = {
     "issues": ['id','id', 'created', 'updated', 'resolved', 'numberInProject', 'project(id)', 'summary', 'description',
             'usesMarkdown', 'wikifiedDescription',
             'reporter(id)', 'updater(id)', 'draftOwner', 'isDraft', 'visibility(id)', 'votes', 'comments(id)', 'commentsCount',
-            'externalIssue(id, key, url, name)', 'customFields($type,id,projectCustomField($type,id,field($type,id,name)))', 'voters(id)', 'watchers(id)',
+            'externalIssue(id, key, url, name)', 'customFields($type,id,name,value(name),projectCustomField($type,id,field($type,id,name)))', 'voters(id)', 'watchers(id)',
             'attachments(id)', 'subtasks(id)',
             'parent($type, id, direction,linkType(name,localizedName,sourceToTarget,localizedSourceToTarget,targetToSource, localizedTargetToSource,directed,aggregation,readOnly),issues(id),trimmedIssues(id))'],
 
