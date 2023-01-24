@@ -44,7 +44,7 @@ fields = {
 
     "dates": ["updated","created","date","resolved"],
 
-    "admin": ["projects","users"]
+    "admin": ["projects"]
 }
 
 
